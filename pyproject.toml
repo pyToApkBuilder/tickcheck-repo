@@ -1,9 +1,9 @@
 [project]
-name = "StockSense"
-version = "0.1.0"
-description = "app that shows stock prices"
+name = "TickCheck"
+version = "1.0.0"
+description = "app that filter, store, and shows stock prices"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "aritracodespy", email = "you@example.com" }
 ]
@@ -15,7 +15,7 @@ org = "com.mycompany"
 
 # project display name that is used as an app title on Android and iOS home screens,
 # shown in window titles and about app dialogs on desktop.
-product = "StockSense"
+product = "TickCheck"
 
 # company name to display in about app dialogs
 company = "Flet_aritracodespy"
