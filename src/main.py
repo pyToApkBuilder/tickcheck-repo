@@ -1,12 +1,12 @@
 import flet as ft
 from tradingview_ta import TA_Handler, Interval
 import pytz
-import time 
+import time
 from datetime import datetime
 
 def get_time():
     india_tz = pytz.timezone('Asia/Kolkata')
-    return datetime.now(india_tz).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now(india_tz).strftime("%Y-%m-%d (%H:%M)")
 
 def ptc_diff(num1, num2):
     try:
@@ -37,13 +37,13 @@ def main(page: ft.Page):
         value = page.client_storage.get("stocklist")
         return value if value else []
 
-    sym_input = ft.TextField(label="Enter Stock symbol (e.g., infy/nse/india)...", expand=True)
+    sym_input = ft.TextField(label="Stock symbol (e.g. symbol/exchange/screener)...", expand=True, autofocus=False)
     direction_input = ft.Dropdown(
         label="Direction",
         options=[ft.dropdown.Option("LONG"), ft.dropdown.Option("SHORT")],
         value="LONG"
     )
-    results_column = ft.ListView(expand=True, spacing=10, auto_scroll=False, padding=20)
+    results_column = ft.ListView(expand=True, spacing=10, auto_scroll=False, padding=5)
 
     def delete(e):
         data = e.control.data
@@ -51,6 +51,7 @@ def main(page: ft.Page):
         stocksList = [item for item in stocksList if item != data]
         save_data(stocksList)
         screenupdate()
+        page.open(ft.SnackBar(ft.Text(f"{data[0]} Deleted! ",color=ft.Colors.RED)))
 
     def screenupdate():
         stockslist = load_data()
@@ -71,6 +72,8 @@ def main(page: ft.Page):
             change = ptc_diff(price, entry) if direction == "LONG" else ptc_diff(entry, price)
             results_column.controls.insert(0, ft.Container(
                 margin=5,
+                padding = 10,
+                alignment=ft.alignment.center,
                 content=ft.Row([
                     ft.Column([
                         ft.Text(value=symlist[3], size=12),
@@ -97,12 +100,6 @@ def main(page: ft.Page):
             ))
         page.update()
 
-    dlg = ft.AlertDialog(
-        title=ft.Text("Input Error"),
-        content=ft.Text("Enter valid symbol..."),
-        alignment=ft.alignment.center,
-    )
-
     def searchclick(e):
         symlist = sym_input.value.strip().upper().split("/")
         direction = direction_input.value
@@ -112,12 +109,16 @@ def main(page: ft.Page):
             if symlist not in [item[0] for item in stocklist]:
                 stocklist.append([symlist, data["close"], direction, get_time()])
                 save_data(stocklist)
+                page.open(ft.SnackBar(ft.Text(f"{symlist[0]} Added!",color=ft.Colors.GREEN)))
                 screenupdate()
+            else:
+                page.open(ft.SnackBar(ft.Text(f"{symlist[0]} already exists!")))
+                page.update()
         else:
-            page.dialog = dlg
-            page.dialog.open = True
+            page.open(ft.SnackBar(ft.Text("Invalid Input!",color=ft.Colors.RED)))
             page.update()
         sym_input.value = ""
+        sym_input.autofocus = False
         page.update()
 
     clear_all_button = ft.PopupMenuItem(
@@ -133,11 +134,11 @@ def main(page: ft.Page):
 
     page.add(ft.Container(
         expand=True,
-        padding=ft.padding.only(top=20, bottom=10),
+        padding=ft.padding.only(0,30,0,20),
         content=ft.Column([
             ft.Row([sym_input, direction_input]),
             ft.Row(alignment=ft.MainAxisAlignment.SPACE_BETWEEN, controls=[
-                ft.PopupMenuButton(items=[clear_all_button, refresh_button]),
+                ft.PopupMenuButton(items=[refresh_button,clear_all_button,]),
                 ft.ElevatedButton(icon=ft.Icons.ADD, text="ADD", expand=True, on_click=searchclick),
             ]),
             results_column
