@@ -22,7 +22,7 @@ def getdata(sym, exc="NSE", screen="INDIA"):
             exchange=exc.strip(),
             interval=Interval.INTERVAL_1_DAY,
         )
-        data = handler.get_indicators(['description', "close", "RSI"])
+        data = handler.get_indicators(['description', "close", "RSI","RSI[1]"])
         return data, exc
     except Exception:
         return None, None
@@ -37,21 +37,14 @@ def main(page: ft.Page):
         value = page.client_storage.get("stocklist")
         return value if value else []
 
-    sym_input = ft.TextField(label="Stock symbol (e.g. symbol/exchange/screener)...", expand=True, autofocus=False)
-    direction_input = ft.Dropdown(
-        label="Direction",
-        options=[ft.dropdown.Option("LONG"), ft.dropdown.Option("SHORT")],
-        value="LONG"
-    )
-    results_column = ft.ListView(expand=True, spacing=10, auto_scroll=False, padding=5)
 
-    def delete(e):
+    def exit(e):
         data = e.control.data
         stocksList = load_data()
         stocksList = [item for item in stocksList if item != data]
         save_data(stocksList)
         screenupdate()
-        page.open(ft.SnackBar(ft.Text(f"{data[0]} Deleted! ",color=ft.Colors.RED)))
+        page.open(ft.SnackBar(ft.Text(f"{data[0][0]} Exited! ",color=ft.Colors.RED)))
 
     def screenupdate():
         stockslist = load_data()
@@ -69,6 +62,7 @@ def main(page: ft.Page):
             price = data["close"]
             name = data["description"]
             rsi = data["RSI"]
+            rsi1 = data["RSI[1]"]
             change = ptc_diff(price, entry) if direction == "LONG" else ptc_diff(entry, price)
             results_column.controls.insert(0, ft.Container(
                 margin=5,
@@ -78,7 +72,8 @@ def main(page: ft.Page):
                     ft.Column([
                         ft.Text(value=symlist[3], size=12),
                         ft.Text(value=f"{name}", size=20),
-                        ft.Text(f'Entry: {entry} | Price: {price} (RSI: {rsi:.2f})'),
+                        ft.Text(f'Entry: {entry} | Price: {price}'),
+                        ft.Text(f"RSI: {rsi:.2f} | RSI[1]: {rsi1:.2f}"),
                         ft.Text(value=f"{direction} change: {change:.2f} %",
                                 color=ft.Colors.RED if change < 0 else ft.Colors.GREEN)
                     ], alignment=ft.MainAxisAlignment.CENTER),
@@ -90,19 +85,34 @@ def main(page: ft.Page):
                                 f"https://www.google.com/finance/quote/{s}:{exc}")
                         ),
                         ft.PopupMenuItem(
-                            text="Delete",
-                            icon=ft.Icons.DELETE,
+                            text="Exit",
+                            icon=ft.Icons.EXIT_TO_APP,
                             data=symlist,
-                            on_click=delete
+                            on_click=exit
                         )
                     ])
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
             ))
         page.update()
 
-    def searchclick(e):
+    def submit(e):
+        if sym_input.value == "":
+            return
         symlist = sym_input.value.strip().upper().split("/")
-        direction = direction_input.value
+        data, exc = getdata(*symlist) if len(symlist) > 1 else getdata(symlist[0])
+        if data is not None:
+            info.color = ft.Colors.GREEN
+            info.value = f"{data['description']} ({exc}) | Price: {data['close']} | RSI: {data['RSI']:.1f} | RSI[1]: {data['RSI[1]']:.1f}"
+        else:
+            info.color = ft.Colors.RED
+            info.value = "No data avalable!"
+            sym_input.value = ""
+        page.update()
+
+
+    def entry(e):
+        direction = e.control.data
+        symlist = sym_input.value.strip().upper().split("/")
         data, exc = getdata(*symlist) if len(symlist) > 1 else getdata(symlist[0])
         if data is not None:
             stocklist = load_data()
@@ -118,11 +128,25 @@ def main(page: ft.Page):
             page.open(ft.SnackBar(ft.Text("Invalid Input!",color=ft.Colors.RED)))
             page.update()
         sym_input.value = ""
+        info.value = ""
         sym_input.autofocus = False
         page.update()
 
+    sym_input = ft.TextField(
+        label="Stock symbol (e.g. symbol/exchange/screener)...",
+        expand=True,
+        autofocus=False,
+        border_width=0,
+        focused_border_width=0,
+        on_submit=submit
+    )
+    info = ft.Text("")
+    results_column = ft.ListView(expand=True, spacing=10, auto_scroll=False, padding=5)
+
+
+
     clear_all_button = ft.PopupMenuItem(
-        text="Clear All",
+        text="Exit All",
         icon=ft.Icons.CLEAR,
         on_click=lambda _: [page.client_storage.clear(), screenupdate()]
     )
@@ -134,14 +158,34 @@ def main(page: ft.Page):
 
     page.add(ft.Container(
         expand=True,
-        padding=ft.padding.only(0,30,0,20),
+        padding=ft.padding.only(top=30),
         content=ft.Column([
-            ft.Row([sym_input, direction_input]),
+            ft.Row([sym_input]),
+            info,
             ft.Row(alignment=ft.MainAxisAlignment.SPACE_BETWEEN, controls=[
                 ft.PopupMenuButton(items=[refresh_button,clear_all_button,]),
-                ft.ElevatedButton(icon=ft.Icons.ADD, text="ADD", expand=True, on_click=searchclick),
+                ft.ElevatedButton(
+                    icon=ft.Icons.ADD,
+                    text="LONG",
+                    expand=True,
+                    on_click=entry,
+                    data="LONG",
+                    bgcolor=ft.Colors.GREEN_400,
+                    color=ft.Colors.WHITE,
+                    icon_color=ft.Colors.BLACK
+                ),
+                ft.ElevatedButton(
+                    icon=ft.Icons.REMOVE,
+                    text="SHORT",
+                    expand=True,
+                    on_click=entry,
+                    data="SHORT",
+                    bgcolor=ft.Colors.RED_400,
+                    color=ft.Colors.WHITE,
+                    icon_color=ft.Colors.BLACK
+                ),
             ]),
-            results_column
+            results_column,
         ])
     ))
 
